@@ -1,0 +1,69 @@
+/*
+ * Application overlay to add EC11 encoder, backlight and underglow on nice_nano.
+ */
+
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/led/led.h>
+
+/ {
+    chosen {
+        zmk,backlight = &backlight;
+        zmk,underglow = &underglow;
+    };
+    left_encoder: encoder_left {
+        compatible = "alps,ec11";
+        /* CLK -> D8 (P1.04), DT -> D9 (P1.06) */
+        a-gpios = <&pro_micro 8 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        b-gpios = <&pro_micro 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        steps = <40>;
+    };
+
+    sensors: sensors {
+        compatible = "zmk,keymap-sensors";
+        sensors = <&left_encoder>;
+        triggers-per-rotation = <20>;
+    };
+
+    backlight: pwmleds {
+        compatible = "pwm-leds";
+        pwm_led_0 {
+            pwms = <&pwm0 0 PWM_USEC(20) PWM_POLARITY_NORMAL>;
+        };
+    };
+
+    /* Typical underglow config for Corne + nice!nano.
+     * TODO: verify DIN pin with multimeter and update gpios if needed.
+     * TODO: set chain-length to LED count per half.
+     */
+    underglow: ws2812 {
+        compatible = "worldsemi,ws2812-gpio";
+        chain-length = <10>;
+        color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
+        gpios = <&pro_micro 1 GPIO_ACTIVE_HIGH>;
+    };
+};
+
+
+&pinctrl {
+    pwm0_default: pwm0_default {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 9)>; /* P0.09 (pro_micro D10) */
+        };
+    };
+
+    pwm0_sleep: pwm0_sleep {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 9)>;
+            low-power-enable;
+        };
+    };
+};
+
+&pwm0 {
+    status = "okay";
+    pinctrl-0 = <&pwm0_default>;
+    pinctrl-1 = <&pwm0_sleep>;
+    pinctrl-names = "default", "sleep";
+};
+
+
